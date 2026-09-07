@@ -64,9 +64,3 @@ export async function definirSenhaUsuario(userId: string, password: string): Pro
 export async function removerAcessoUsuario(userId: string): Promise<void> {
   await invoke({ action: "revoke", userId })
 }
-
-export async function resolverEmailPorUsuario(usuario: string): Promise<string | null> {
-  const { data, error } = await supabase.rpc("sucesu_resolver_login", { p_usuario: usuario })
-  if (error) throw error
-  return (data as string | null) ?? null
-}

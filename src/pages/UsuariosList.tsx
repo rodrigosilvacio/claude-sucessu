@@ -9,6 +9,9 @@ import {
 } from "../lib/usuarios"
 import { listAssociacaoOptions } from "../lib/associacoes"
 import { useAuth } from "../lib/auth-context"
+import { ConfirmDialog } from "../components/ConfirmDialog"
+import { SetPasswordDialog } from "../components/SetPasswordDialog"
+import { PasswordField } from "../components/PasswordField"
 import type { Usuario } from "../types/usuario"
 import type { AssociacaoOption } from "../types/associacao"
 
@@ -16,6 +19,8 @@ const PAPEL_LABELS: Record<Usuario["papel"], string> = {
   admin: "Admin",
   gestor: "Gestor",
 }
+
+const AVISO_DURACAO_MS = 5000
 
 export function UsuariosList() {
   const { session } = useAuth()
@@ -33,6 +38,10 @@ export function UsuariosList() {
   const [novoPapel, setNovoPapel] = useState<Usuario["papel"]>("gestor")
   const [salvando, setSalvando] = useState(false)
 
+  const [confirmDemote, setConfirmDemote] = useState<Usuario | null>(null)
+  const [confirmRevoke, setConfirmRevoke] = useState<Usuario | null>(null)
+  const [passwordTarget, setPasswordTarget] = useState<Usuario | null>(null)
+
   function carregar() {
     setLoading(true)
     listUsuarios()
@@ -48,6 +57,12 @@ export function UsuariosList() {
       if (options.length === 1) setNovaAssociacaoId(options[0].id)
     })
   }, [])
+
+  useEffect(() => {
+    if (!aviso) return
+    const timer = setTimeout(() => setAviso(null), AVISO_DURACAO_MS)
+    return () => clearTimeout(timer)
+  }, [aviso])
 
   async function handleCadastrar(e: React.FormEvent) {
     e.preventDefault()
@@ -82,16 +97,14 @@ export function UsuariosList() {
     }
   }
 
-  async function handleDefinirSenha(usuario: Usuario) {
-    const novaSenha = window.prompt(
-      `Nova senha para "${usuario.usuario}" (mínimo 6 caracteres):\nSe essa conta usa outro sistema seu com o mesmo e-mail, a senha muda lá também.`,
-    )
-    if (!novaSenha) return
+  async function confirmarNovaSenha(senha: string) {
+    if (!passwordTarget) return
     setError(null)
     setAviso(null)
     try {
-      await definirSenhaUsuario(usuario.id, novaSenha)
-      setAviso(`Senha atualizada para "${usuario.usuario}".`)
+      await definirSenhaUsuario(passwordTarget.id, senha)
+      setAviso(`Senha atualizada para "${passwordTarget.usuario}".`)
+      setPasswordTarget(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao definir senha.")
     }
@@ -109,7 +122,7 @@ export function UsuariosList() {
     }
   }
 
-  async function handlePapelChange(usuario: Usuario, papel: Usuario["papel"]) {
+  async function aplicarPapelChange(usuario: Usuario, papel: Usuario["papel"]) {
     setUsuarios((prev) =>
       prev.map((u) => (u.id === usuario.id ? { ...u, papel, is_admin: papel === "admin" } : u)),
     )
@@ -121,23 +134,43 @@ export function UsuariosList() {
     }
   }
 
-  async function handleRemoverAcesso(usuario: Usuario) {
+  function handlePapelChange(usuario: Usuario, papel: Usuario["papel"]) {
+    const isAutoRebaixamento =
+      usuario.id === session?.user.id && usuario.papel === "admin" && papel === "gestor"
+
+    if (isAutoRebaixamento) {
+      const outrosAdmins = usuarios.filter((u) => u.id !== usuario.id && u.papel === "admin").length
+      if (outrosAdmins === 0) {
+        setError(
+          "Você é o único Admin cadastrado. Promova outro usuário a Admin antes de deixar de ser.",
+        )
+        return
+      }
+      setConfirmDemote(usuario)
+      return
+    }
+
+    aplicarPapelChange(usuario, papel)
+  }
+
+  function handleRemoverAcessoClick(usuario: Usuario) {
     if (usuario.id === session?.user.id) {
       setError("Você não pode remover seu próprio acesso por aqui.")
       return
     }
-    if (
-      !window.confirm(
-        `Remover o acesso de "${usuario.usuario}" ao SUCESU SP Connect? A conta continua existindo (pode ser usada em outros sistemas), só perde acesso a este.`,
-      )
-    )
-      return
+    setConfirmRevoke(usuario)
+  }
+
+  async function confirmarRemoverAcesso() {
+    if (!confirmRevoke) return
     setError(null)
     try {
-      await removerAcessoUsuario(usuario.id)
+      await removerAcessoUsuario(confirmRevoke.id)
       carregar()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao remover acesso.")
+    } finally {
+      setConfirmRevoke(null)
     }
   }
 
@@ -156,63 +189,104 @@ export function UsuariosList() {
 
       <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
         <h2 className="text-base font-semibold text-brand-navy-900">Cadastrar novo usuário</h2>
-        <form onSubmit={handleCadastrar} className="mt-3 flex flex-wrap gap-2">
-          <input
-            value={novoNome}
-            onChange={(e) => setNovoNome(e.target.value)}
-            placeholder="Nome"
-            className="min-w-[160px] rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
-          />
-          <input
-            value={novoUsuario}
-            onChange={(e) => setNovoUsuario(e.target.value)}
-            required
-            placeholder="Usuário (para login)"
-            className="min-w-[160px] rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
-          />
-          <input
-            type="email"
-            value={novoEmail}
-            onChange={(e) => setNovoEmail(e.target.value)}
-            placeholder="E-mail (opcional)"
-            className="min-w-[200px] rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
-          />
-          <input
-            type="text"
-            required
-            value={novaSenha}
-            onChange={(e) => setNovaSenha(e.target.value)}
-            placeholder="Senha (mín. 6 caracteres)"
-            className="min-w-[200px] rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
-          />
-          <select
-            value={novaAssociacaoId}
-            onChange={(e) => setNovaAssociacaoId(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
-          >
-            <option value="">Sem associação</option>
-            {associacoes.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.nome}
-              </option>
-            ))}
-          </select>
-          <select
-            value={novoPapel}
-            onChange={(e) => setNovoPapel(e.target.value as Usuario["papel"])}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
-          >
-            <option value="gestor">Gestor</option>
-            <option value="admin">Admin</option>
-          </select>
-          <button
-            type="submit"
-            disabled={salvando}
-            className="flex items-center gap-1.5 rounded-lg bg-brand-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-navy-800 disabled:opacity-60"
-          >
-            <UserPlus size={16} />
-            {salvando ? "Salvando..." : "Cadastrar"}
-          </button>
+        <form onSubmit={handleCadastrar} className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <label htmlFor="novo-nome" className="text-xs font-medium text-slate-500">
+              Nome
+            </label>
+            <input
+              id="novo-nome"
+              value={novoNome}
+              onChange={(e) => setNovoNome(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="novo-usuario" className="text-xs font-medium text-slate-500">
+              Usuário (para login) *
+            </label>
+            <input
+              id="novo-usuario"
+              value={novoUsuario}
+              onChange={(e) => setNovoUsuario(e.target.value)}
+              required
+              autoComplete="username"
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="novo-email" className="text-xs font-medium text-slate-500">
+              E-mail (opcional)
+            </label>
+            <input
+              id="novo-email"
+              type="email"
+              value={novoEmail}
+              onChange={(e) => setNovoEmail(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="nova-senha" className="text-xs font-medium text-slate-500">
+              Senha (mín. 6 caracteres) *
+            </label>
+            <PasswordField
+              id="nova-senha"
+              value={novaSenha}
+              onChange={setNovaSenha}
+              required
+              placeholder="Digite ou gere uma senha"
+              className="mt-1"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="nova-associacao" className="text-xs font-medium text-slate-500">
+              Associação
+            </label>
+            <select
+              id="nova-associacao"
+              value={novaAssociacaoId}
+              onChange={(e) => setNovaAssociacaoId(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
+            >
+              <option value="">Sem associação</option>
+              {associacoes.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="novo-papel" className="text-xs font-medium text-slate-500">
+              Papel
+            </label>
+            <select
+              id="novo-papel"
+              value={novoPapel}
+              onChange={(e) => setNovoPapel(e.target.value as Usuario["papel"])}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
+            >
+              <option value="gestor">Gestor</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+
+          <div className="sm:col-span-2 lg:col-span-3">
+            <button
+              type="submit"
+              disabled={salvando}
+              className="flex items-center gap-1.5 rounded-lg bg-brand-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-navy-800 disabled:opacity-60"
+            >
+              <UserPlus size={16} />
+              {salvando ? "Salvando..." : "Cadastrar"}
+            </button>
+          </div>
         </form>
 
         {aviso && (
@@ -295,14 +369,14 @@ export function UsuariosList() {
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-3">
                         <button
-                          onClick={() => handleDefinirSenha(u)}
+                          onClick={() => setPasswordTarget(u)}
                           title="Definir nova senha"
                           className="text-slate-400 hover:text-brand-blue-600"
                         >
                           <KeyRound size={16} />
                         </button>
                         <button
-                          onClick={() => handleRemoverAcesso(u)}
+                          onClick={() => handleRemoverAcessoClick(u)}
                           title="Remover acesso ao SUCESU SP Connect"
                           className="text-slate-400 hover:text-red-600"
                         >
@@ -317,6 +391,40 @@ export function UsuariosList() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmDemote !== null}
+        title="Deixar de ser Admin?"
+        message="Você vai perder acesso a Associação, Usuários e Auditoria imediatamente. Tem certeza que quer continuar?"
+        confirmLabel="Sim, deixar de ser Admin"
+        danger
+        onConfirm={() => {
+          if (confirmDemote) aplicarPapelChange(confirmDemote, "gestor")
+          setConfirmDemote(null)
+        }}
+        onCancel={() => setConfirmDemote(null)}
+      />
+
+      <ConfirmDialog
+        open={confirmRevoke !== null}
+        title="Remover acesso"
+        message={
+          confirmRevoke
+            ? `Remover o acesso de "${confirmRevoke.usuario}" ao SUCESU SP Connect? A conta continua existindo (pode ser usada em outros sistemas), só perde acesso a este.`
+            : ""
+        }
+        confirmLabel="Remover acesso"
+        danger
+        onConfirm={confirmarRemoverAcesso}
+        onCancel={() => setConfirmRevoke(null)}
+      />
+
+      <SetPasswordDialog
+        open={passwordTarget !== null}
+        usuarioNome={passwordTarget?.usuario ?? ""}
+        onConfirm={confirmarNovaSenha}
+        onCancel={() => setPasswordTarget(null)}
+      />
     </div>
   )
 }

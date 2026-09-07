@@ -33,7 +33,7 @@ export function Login() {
 
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm">
         <h1 className="text-center text-2xl font-bold text-brand-navy-900">Bem-vindo de volta</h1>
-        <p className="mt-2 text-center text-slate-500">Acesse com sua conta de gestor</p>
+        <p className="mt-2 text-center text-slate-500">Acesse com seu usuário e senha</p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
@@ -76,6 +76,10 @@ export function Login() {
             {submitting ? "Entrando..." : "Entrar"}
           </button>
         </form>
+
+        <p className="mt-4 text-center text-xs text-slate-400">
+          Esqueceu sua senha? Peça para um administrador redefinir em Usuários.
+        </p>
       </div>
     </div>
   )
