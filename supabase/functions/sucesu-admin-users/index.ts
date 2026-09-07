@@ -5,13 +5,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
-// URL pública da aplicação — usada para montar o link de "definir senha" enviado
-// no convite/redefinição. Sem isso, o Supabase usa o Site URL configurado no
-// dashboard (que por padrão aponta para localhost e não funciona para quem recebe
-// o link). Configurável via secret da Edge Function (`supabase secrets set APP_URL=...`)
-// para não depender de redeploy quando o domínio mudar.
-const APP_URL = Deno.env.get("APP_URL") ?? "https://sucesusp.vercel.app"
-
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -111,7 +104,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "invite") {
-      const { email, nome } = body
+      const { email, nome, password } = body
       if (!email || typeof email !== "string") return json({ error: "E-mail é obrigatório" }, 400)
 
       // Só um admin pode conceder admin ou o papel financeiro a um convite; qualquer
@@ -128,7 +121,8 @@ Deno.serve(async (req: Request) => {
 
       // Se já existe uma conta com esse e-mail (comum neste projeto compartilhado,
       // usado por vários dos seus apps), só adiciona ela ao escopo do SUCESU SP Connect
-      // em vez de tentar criar uma conta nova.
+      // em vez de tentar criar uma conta nova — e NUNCA mexe na senha dela, já que a
+      // mesma conta pode ser usada para logar em outro app deste mesmo projeto.
       const { data: todosUsuarios, error: listError } = await admin.auth.admin.listUsers({
         perPage: 1000,
       })
@@ -138,27 +132,22 @@ Deno.serve(async (req: Request) => {
       )
 
       let userId: string
-      let actionLink: string | null = null
+      let contaExistente = false
 
       if (existente) {
         userId = existente.id
+        contaExistente = true
       } else {
-        const tempPassword = crypto.randomUUID()
+        if (!password || typeof password !== "string" || password.length < 6) {
+          return json({ error: "Defina uma senha inicial com pelo menos 6 caracteres" }, 400)
+        }
         const { data: created, error: createError } = await admin.auth.admin.createUser({
           email,
-          password: tempPassword,
+          password,
           email_confirm: true,
         })
         if (createError) throw createError
         userId = created.user.id
-
-        const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-          type: "recovery",
-          email,
-          options: { redirectTo: `${APP_URL}/definir-senha` },
-        })
-        if (linkError) throw linkError
-        actionLink = linkData.properties?.action_link ?? null
       }
 
       const { error: upsertError } = await admin.from("sucesu_usuarios").upsert({
@@ -170,21 +159,28 @@ Deno.serve(async (req: Request) => {
       })
       if (upsertError) throw upsertError
 
-      return json({ user: { id: userId, email }, actionLink })
+      return json({ user: { id: userId, email }, contaExistente })
     }
 
-    if (action === "reset_link") {
-      const { email } = body
-      if (!email || typeof email !== "string") return json({ error: "E-mail é obrigatório" }, 400)
+    if (action === "set_password") {
+      // Só admin pode forçar a senha de outra conta. Isso muda a senha em TODOS os
+      // apps que compartilham este projeto Supabase, já que a conta é a mesma.
+      if (!callerScope?.is_admin) {
+        return json({ error: "Apenas administradores podem alterar a senha de outra conta" }, 403)
+      }
+      const { userId, password } = body
+      if (!userId || typeof userId !== "string") return json({ error: "ID do usuário é obrigatório" }, 400)
+      if (!password || typeof password !== "string" || password.length < 6) {
+        return json({ error: "A senha deve ter pelo menos 6 caracteres" }, 400)
+      }
+      if (!idsEscopo.has(userId)) {
+        return json({ error: "Usuário fora do escopo do SUCESU SP Connect" }, 403)
+      }
 
-      const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-        type: "recovery",
-        email,
-        options: { redirectTo: `${APP_URL}/definir-senha` },
-      })
-      if (linkError) throw linkError
+      const { error } = await admin.auth.admin.updateUserById(userId, { password })
+      if (error) throw error
 
-      return json({ actionLink: linkData.properties?.action_link ?? null })
+      return json({ ok: true })
     }
 
     if (action === "revoke") {

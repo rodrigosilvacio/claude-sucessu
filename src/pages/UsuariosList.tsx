@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react"
-import { Check, Copy, KeyRound, UserPlus, UserX } from "lucide-react"
+import { Check, KeyRound, UserPlus, UserX } from "lucide-react"
 import {
   atualizarEscopoUsuario,
   convidarUsuario,
-  gerarLinkRedefinicao,
+  definirSenhaUsuario,
   listUsuarios,
   removerAcessoUsuario,
 } from "../lib/usuarios"
@@ -23,15 +23,15 @@ export function UsuariosList() {
   const [associacoes, setAssociacoes] = useState<AssociacaoOption[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
 
   const [novoNome, setNovoNome] = useState("")
   const [novoEmail, setNovoEmail] = useState("")
+  const [novaSenha, setNovaSenha] = useState("")
   const [novaAssociacaoId, setNovaAssociacaoId] = useState("")
   const [novoAdmin, setNovoAdmin] = useState(false)
   const [novoPapel, setNovoPapel] = useState<Usuario["papel"]>("gestor")
   const [convidando, setConvidando] = useState(false)
-  const [linkGerado, setLinkGerado] = useState<{ email: string; link: string } | null>(null)
-  const [copied, setCopied] = useState(false)
 
   function carregar() {
     setLoading(true)
@@ -54,7 +54,7 @@ export function UsuariosList() {
     if (!novoEmail.trim()) return
     setConvidando(true)
     setError(null)
-    setLinkGerado(null)
+    setAviso(null)
     try {
       const result = await convidarUsuario(
         novoEmail.trim(),
@@ -62,12 +62,16 @@ export function UsuariosList() {
         novaAssociacaoId || undefined,
         novoAdmin,
         novoPapel,
+        novaSenha || undefined,
       )
-      if (result.actionLink) {
-        setLinkGerado({ email: novoEmail.trim(), link: result.actionLink })
-      }
+      setAviso(
+        result.contaExistente
+          ? `${novoEmail.trim()} já tinha uma conta neste projeto — foi apenas liberado o acesso ao SUCESU SP Connect. A senha existente dela não foi alterada.`
+          : `Conta criada. Informe à pessoa: e-mail ${novoEmail.trim()} e a senha definida.`,
+      )
       setNovoEmail("")
       setNovoNome("")
+      setNovaSenha("")
       setNovoAdmin(false)
       setNovoPapel("gestor")
       carregar()
@@ -78,14 +82,18 @@ export function UsuariosList() {
     }
   }
 
-  async function handleGerarLink(email: string) {
+  async function handleDefinirSenha(usuario: Usuario) {
+    const novaSenha = window.prompt(
+      `Nova senha para ${usuario.email} (mínimo 6 caracteres):\nIsso muda a senha de login dessa conta — se ela usa outro sistema seu com o mesmo e-mail, a senha muda lá também.`,
+    )
+    if (!novaSenha) return
     setError(null)
-    setLinkGerado(null)
+    setAviso(null)
     try {
-      const result = await gerarLinkRedefinicao(email)
-      if (result.actionLink) setLinkGerado({ email, link: result.actionLink })
+      await definirSenhaUsuario(usuario.id, novaSenha)
+      setAviso(`Senha atualizada para ${usuario.email}.`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao gerar link.")
+      setError(err instanceof Error ? err.message : "Erro ao definir senha.")
     }
   }
 
@@ -141,13 +149,6 @@ export function UsuariosList() {
     }
   }
 
-  function handleCopyLink() {
-    if (!linkGerado) return
-    navigator.clipboard.writeText(linkGerado.link)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
   function nomeAssociacao(id: string | null) {
     if (!id) return "—"
     return associacoes.find((a) => a.id === id)?.nome ?? "—"
@@ -164,7 +165,10 @@ export function UsuariosList() {
       </p>
 
       <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
-        <h2 className="text-base font-semibold text-brand-navy-900">Convidar novo usuário</h2>
+        <h2 className="text-base font-semibold text-brand-navy-900">Cadastrar novo usuário</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Você define a senha inicial e informa e-mail e senha diretamente para a pessoa.
+        </p>
         <form onSubmit={handleConvidar} className="mt-3 flex flex-wrap gap-2">
           <input
             value={novoNome}
@@ -179,6 +183,14 @@ export function UsuariosList() {
             onChange={(e) => setNovoEmail(e.target.value)}
             placeholder="email@exemplo.com"
             className="flex-1 min-w-[220px] rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
+          />
+          <input
+            type="text"
+            required
+            value={novaSenha}
+            onChange={(e) => setNovaSenha(e.target.value)}
+            placeholder="Senha inicial (mín. 6 caracteres)"
+            className="min-w-[220px] rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
           />
           <select
             value={novaAssociacaoId}
@@ -212,33 +224,14 @@ export function UsuariosList() {
             className="flex items-center gap-1.5 rounded-lg bg-brand-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-navy-800 disabled:opacity-60"
           >
             <UserPlus size={16} />
-            {convidando ? "Convidando..." : "Convidar"}
+            {convidando ? "Salvando..." : "Cadastrar"}
           </button>
         </form>
 
-        {linkGerado && (
-          <div className="mt-4 rounded-lg border border-brand-blue-500/30 bg-brand-blue-500/5 p-4">
-            <p className="text-sm font-medium text-brand-navy-900">
-              Link para {linkGerado.email} definir a senha:
-            </p>
-            <div className="mt-2 flex items-center gap-2">
-              <input
-                readOnly
-                value={linkGerado.link}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-600"
-              />
-              <button
-                type="button"
-                onClick={handleCopyLink}
-                className="flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-navy-800"
-              >
-                {copied ? <Check size={16} /> : <Copy size={16} />}
-                {copied ? "Copiado!" : "Copiar"}
-              </button>
-            </div>
-            <p className="mt-2 text-xs text-slate-500">
-              Envie esse link para a pessoa (WhatsApp, e-mail etc.) — ele expira após o uso.
-            </p>
+        {aviso && (
+          <div className="mt-4 flex items-start gap-2 rounded-lg border border-green-300 bg-green-50 p-3 text-sm text-green-800">
+            <Check size={16} className="mt-0.5 shrink-0" />
+            {aviso}
           </div>
         )}
 
@@ -327,8 +320,8 @@ export function UsuariosList() {
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-3">
                         <button
-                          onClick={() => u.email && handleGerarLink(u.email)}
-                          title="Gerar link de redefinição de senha"
+                          onClick={() => handleDefinirSenha(u)}
+                          title="Definir nova senha"
                           className="text-slate-400 hover:text-brand-blue-600"
                         >
                           <KeyRound size={16} />

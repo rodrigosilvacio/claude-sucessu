@@ -30,8 +30,9 @@ export async function convidarUsuario(
   associacaoId?: string,
   isAdmin?: boolean,
   papel?: "gestor" | "financeiro",
-): Promise<{ user: { id: string; email: string }; actionLink: string | null }> {
-  return invoke({ action: "invite", email, nome, associacaoId, isAdmin, papel })
+  password?: string,
+): Promise<{ user: { id: string; email: string }; contaExistente: boolean }> {
+  return invoke({ action: "invite", email, nome, associacaoId, isAdmin, papel, password })
 }
 
 export async function atualizarEscopoUsuario(
@@ -43,8 +44,8 @@ export async function atualizarEscopoUsuario(
   await invoke({ action: "update_scope", userId, associacaoId, isAdmin, papel })
 }
 
-export async function gerarLinkRedefinicao(email: string): Promise<{ actionLink: string | null }> {
-  return invoke({ action: "reset_link", email })
+export async function definirSenhaUsuario(userId: string, password: string): Promise<void> {
+  await invoke({ action: "set_password", userId, password })
 }
 
 export async function removerAcessoUsuario(userId: string): Promise<void> {
