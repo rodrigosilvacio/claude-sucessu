@@ -38,6 +38,8 @@ export const STATUS_ASSOCIADO = ["Pendente de Aprovação", "Ativo", "Inativo", 
 
 export const TIPOS_PESSOA = ["Pessoa Física", "Pessoa Jurídica"] as const
 
+export const FORMAS_PAGAMENTO = ["Pix", "Cartão"] as const
+
 // As Vice-Presidências deixaram de ser uma lista fixa: agora são cadastráveis por
 // associação (tabela sucesu_vice_presidencias, gerenciada em Configuração > Associação)
 // e carregadas dinamicamente via src/lib/vicePresidencias.ts.

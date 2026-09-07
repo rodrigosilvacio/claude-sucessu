@@ -31,6 +31,8 @@ export type Associado = {
 
   tipo_pessoa: string
   valor_associacao: number | null
+  forma_pagamento: string | null
+  parcelas_cartao: number | null
 
   categoria_associado: string | null
   tipo_vinculo: string | null

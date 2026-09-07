@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Plus, Search } from "lucide-react"
+import { Calendar, Check, Copy, Plus, Search } from "lucide-react"
 import { listEventos } from "../lib/eventos"
 import { listVicePresidencias } from "../lib/vicePresidencias"
 import { STATUS_EVENTO } from "../types/evento"
@@ -9,7 +9,8 @@ import type { EventoComRelacoes } from "../types/evento"
 import type { VicePresidencia } from "../types/vicePresidencia"
 
 const statusColors: Record<string, string> = {
-  Planejado: "bg-blue-100 text-blue-700",
+  Planejado: "bg-slate-100 text-slate-600",
+  Aprovado: "bg-blue-100 text-blue-700",
   Realizado: "bg-green-100 text-green-700",
   Cancelado: "bg-red-100 text-red-700",
 }
@@ -28,6 +29,15 @@ export function EventosList() {
   const [search, setSearch] = useState("")
   const [vpFilter, setVpFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
+  const [copied, setCopied] = useState(false)
+
+  const linkAgendaPublica = `${window.location.origin}/agenda-publica`
+
+  function handleCopyAgendaLink() {
+    navigator.clipboard.writeText(linkAgendaPublica)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   useEffect(() => {
     listEventos()
@@ -54,13 +64,32 @@ export function EventosList() {
           <h1 className="text-2xl font-bold text-brand-navy-900">Eventos</h1>
           <p className="mt-1 text-slate-500">Eventos organizados pelas Vice-Presidências</p>
         </div>
-        <Link
-          to="/eventos/novo"
-          className="flex items-center gap-2 rounded-lg bg-brand-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-navy-800"
-        >
-          <Plus size={18} />
-          Novo Evento
-        </Link>
+        <div className="flex items-center gap-2">
+          <a
+            href="/agenda-publica"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            <Calendar size={18} />
+            Ver Agenda Pública
+          </a>
+          <button
+            type="button"
+            onClick={handleCopyAgendaLink}
+            title="Copiar link da agenda pública"
+            className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            {copied ? <Check size={18} className="text-green-600" /> : <Copy size={18} />}
+          </button>
+          <Link
+            to="/eventos/novo"
+            className="flex items-center gap-2 rounded-lg bg-brand-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-navy-800"
+          >
+            <Plus size={18} />
+            Novo Evento
+          </Link>
+        </div>
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">

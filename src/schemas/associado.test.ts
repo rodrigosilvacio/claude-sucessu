@@ -9,6 +9,7 @@ const validPayload = {
   email: "maria@example.com",
   categoria_associado: "Efetivo",
   status: "Ativo",
+  forma_pagamento: "Pix",
 }
 
 describe("associadoSchema", () => {
@@ -54,6 +55,41 @@ describe("associadoSchema", () => {
     expect(result.success).toBe(true)
     if (result.success) {
       expect(result.data.valor_associacao).toBeNull()
+    }
+  })
+
+  it("rejects a missing forma_pagamento", () => {
+    const { forma_pagamento: _forma_pagamento, ...withoutFormaPagamento } = validPayload
+    const result = associadoSchema.safeParse(withoutFormaPagamento)
+    expect(result.success).toBe(false)
+  })
+
+  it("requires parcelas_cartao when forma_pagamento is Cartão", () => {
+    const result = associadoSchema.safeParse({ ...validPayload, forma_pagamento: "Cartão" })
+    expect(result.success).toBe(false)
+  })
+
+  it("accepts Cartão with a valid parcelas_cartao", () => {
+    const result = associadoSchema.safeParse({
+      ...validPayload,
+      forma_pagamento: "Cartão",
+      parcelas_cartao: "3",
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.parcelas_cartao).toBe(3)
+    }
+  })
+
+  it("nulls out parcelas_cartao when forma_pagamento is Pix", () => {
+    const result = associadoSchema.safeParse({
+      ...validPayload,
+      forma_pagamento: "Pix",
+      parcelas_cartao: "5",
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.parcelas_cartao).toBeNull()
     }
   })
 })

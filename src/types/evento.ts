@@ -1,4 +1,4 @@
-export const STATUS_EVENTO = ["Planejado", "Realizado", "Cancelado"] as const
+export const STATUS_EVENTO = ["Planejado", "Aprovado", "Realizado", "Cancelado"] as const
 export const MODALIDADES_EVENTO = ["Presencial", "Online", "Híbrido"] as const
 
 export type Evento = {
@@ -54,3 +54,19 @@ export type EventoPublico = {
   vagas_ocupadas: number
   status: string
 }
+
+export type EventoPublicoResumo = {
+  id: string
+  nome: string
+  descricao: string | null
+  data_evento: string
+  hora_inicio: string | null
+  hora_termino: string | null
+  modalidade: string
+  local_ou_link: string | null
+  valor_inscricao: number | null
+  vagas_limite: number | null
+  vagas_ocupadas: number
+  slug: string
+}
+

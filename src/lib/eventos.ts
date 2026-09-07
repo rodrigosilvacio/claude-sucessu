@@ -1,5 +1,5 @@
 import { supabase } from "./supabase"
-import type { Evento, EventoComRelacoes, EventoPublico } from "../types/evento"
+import type { Evento, EventoComRelacoes, EventoPublico, EventoPublicoResumo } from "../types/evento"
 import type { EventoFormOutput } from "../schemas/evento"
 import type { EventoInscricaoFormOutput } from "../schemas/eventoInscricao"
 
@@ -50,6 +50,12 @@ export async function getEventoPublico(slug: string): Promise<EventoPublico | nu
   const { data, error } = await supabase.rpc("sucesu_evento_publico", { p_slug: slug })
   if (error) throw error
   return (data?.[0] as EventoPublico) ?? null
+}
+
+export async function listEventosPublicos(): Promise<EventoPublicoResumo[]> {
+  const { data, error } = await supabase.rpc("sucesu_eventos_publicos")
+  if (error) throw error
+  return data as EventoPublicoResumo[]
 }
 
 export async function inscreverEmEvento(

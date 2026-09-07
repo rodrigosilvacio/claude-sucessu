@@ -13,6 +13,7 @@ import {
   ESTADOS_CIVIS,
   CATEGORIAS_ASSOCIADO,
   TIPOS_PESSOA,
+  FORMAS_PAGAMENTO,
   TIPOS_VINCULO,
   ORIGENS_ASSOCIADO,
   STATUS_ASSOCIADO,
@@ -62,6 +63,8 @@ const emptyDefaults: AssociadoFormValues = {
   formacao_academica: "",
   tipo_pessoa: "Pessoa Física",
   valor_associacao: "100.00",
+  forma_pagamento: undefined as unknown as AssociadoFormValues["forma_pagamento"],
+  parcelas_cartao: "",
   categoria_associado: undefined as unknown as AssociadoFormValues["categoria_associado"],
   tipo_vinculo: "",
   origem_associado: "",
@@ -129,6 +132,7 @@ export function AssociadoForm() {
   const status = watch("status")
   const showInativacao = status === "Inativo" || status === "Suspenso"
   const associacaoIdValue = watch("associacao_id")
+  const formaPagamentoValue = watch("forma_pagamento")
 
   const indicadoPorOptions = useMemo(
     () =>
@@ -208,6 +212,9 @@ export function AssociadoForm() {
           tipo_pessoa: associado.tipo_pessoa as AssociadoFormValues["tipo_pessoa"],
           valor_associacao:
             associado.valor_associacao !== null ? String(associado.valor_associacao) : "",
+          forma_pagamento: associado.forma_pagamento as AssociadoFormValues["forma_pagamento"],
+          parcelas_cartao:
+            associado.parcelas_cartao !== null ? String(associado.parcelas_cartao) : "",
           categoria_associado:
             associado.categoria_associado as AssociadoFormValues["categoria_associado"],
           status: associado.status as AssociadoFormValues["status"],
@@ -490,10 +497,39 @@ export function AssociadoForm() {
               className={inputClass}
             />
             <p className="mt-1 text-xs text-slate-400">
-              Preenchido a partir do valor configurado em Associação — gera automaticamente uma
-              conta a receber ao salvar um novo associado.
+              Preenchido a partir do valor configurado em Associação — gera automaticamente a(s)
+              conta(s) a receber assim que o associado for aprovado.
             </p>
           </Field>
+
+          <Field label="Forma de Pagamento *">
+            <select {...register("forma_pagamento")} className={inputClass}>
+              <option value="">Selecione</option>
+              {FORMAS_PAGAMENTO.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+            {errors.forma_pagamento && (
+              <p className="mt-1 text-xs text-red-600">{errors.forma_pagamento.message}</p>
+            )}
+          </Field>
+
+          {formaPagamentoValue === "Cartão" && (
+            <Field label="Em Quantas Vezes *">
+              <input
+                type="number"
+                min="1"
+                max="12"
+                {...register("parcelas_cartao")}
+                className={inputClass}
+              />
+              {errors.parcelas_cartao && (
+                <p className="mt-1 text-xs text-red-600">{errors.parcelas_cartao.message}</p>
+              )}
+            </Field>
+          )}
 
           <Field label="Categoria do Associado *">
             <select {...register("categoria_associado")} className={inputClass}>

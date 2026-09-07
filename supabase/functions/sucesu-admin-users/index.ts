@@ -5,6 +5,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
+// URL pública da aplicação — usada para montar o link de "definir senha" enviado
+// no convite/redefinição. Sem isso, o Supabase usa o Site URL configurado no
+// dashboard (que por padrão aponta para localhost e não funciona para quem recebe
+// o link). Configurável via secret da Edge Function (`supabase secrets set APP_URL=...`)
+// para não depender de redeploy quando o domínio mudar.
+const APP_URL = Deno.env.get("APP_URL") ?? "https://sucesusp.vercel.app"
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -148,6 +155,7 @@ Deno.serve(async (req: Request) => {
         const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
           type: "recovery",
           email,
+          options: { redirectTo: `${APP_URL}/definir-senha` },
         })
         if (linkError) throw linkError
         actionLink = linkData.properties?.action_link ?? null
@@ -172,6 +180,7 @@ Deno.serve(async (req: Request) => {
       const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
         type: "recovery",
         email,
+        options: { redirectTo: `${APP_URL}/definir-senha` },
       })
       if (linkError) throw linkError
 

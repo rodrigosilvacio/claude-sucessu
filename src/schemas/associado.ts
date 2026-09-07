@@ -2,6 +2,7 @@ import { z } from "zod"
 import { isValidCPF, onlyDigits } from "../lib/format"
 import {
   CATEGORIAS_ASSOCIADO,
+  FORMAS_PAGAMENTO,
   ORIGENS_ASSOCIADO,
   STATUS_ASSOCIADO,
   TIPOS_PESSOA,
@@ -18,7 +19,7 @@ const optionalDate = z
   .optional()
   .transform((value) => (value ? value : null))
 
-export const associadoSchema = z.object({
+const associadoBaseSchema = z.object({
   associacao_id: z.string().min(1, "Selecione a associação"),
   nome_completo: z.string().trim().min(1, "Informe o nome completo"),
   rg: optionalText,
@@ -56,6 +57,12 @@ export const associadoSchema = z.object({
     .transform((value) => (value?.trim() ? Number(value.replace(",", ".")) : null))
     .refine((value) => value === null || !Number.isNaN(value), "Valor inválido"),
 
+  forma_pagamento: z.enum(FORMAS_PAGAMENTO, { message: "Selecione a forma de pagamento" }),
+  parcelas_cartao: z
+    .string()
+    .optional()
+    .transform((value) => (value?.trim() ? Number(value) : null)),
+
   categoria_associado: z.enum(CATEGORIAS_ASSOCIADO, {
     message: "Selecione a categoria do associado",
   }),
@@ -75,6 +82,21 @@ export const associadoSchema = z.object({
   aceite_lgpd: z.boolean().default(false),
   observacoes: optionalText,
 })
+
+export const associadoSchema = associadoBaseSchema
+  .superRefine((data, ctx) => {
+    if (data.forma_pagamento === "Cartão" && (!data.parcelas_cartao || data.parcelas_cartao < 1)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["parcelas_cartao"],
+        message: "Informe em quantas vezes",
+      })
+    }
+  })
+  .transform((data) => ({
+    ...data,
+    parcelas_cartao: data.forma_pagamento === "Cartão" ? data.parcelas_cartao : null,
+  }))
 
 export type AssociadoFormValues = z.input<typeof associadoSchema>
 export type AssociadoFormOutput = z.output<typeof associadoSchema>

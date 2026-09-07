@@ -243,14 +243,24 @@ export function VoluntarioForm() {
             </Field>
 
             <Field label="Data de Início *">
-              <input type="date" {...register("data_inicio")} className={inputClass} />
+              <input
+                type="date"
+                autoComplete="off"
+                {...register("data_inicio")}
+                className={inputClass}
+              />
               {errors.data_inicio && (
                 <p className="mt-1 text-xs text-red-600">{errors.data_inicio.message}</p>
               )}
             </Field>
 
             <Field label="Data de Término">
-              <input type="date" {...register("data_termino")} className={inputClass} />
+              <input
+                type="date"
+                autoComplete="off"
+                {...register("data_termino")}
+                className={inputClass}
+              />
               {errors.data_termino && (
                 <p className="mt-1 text-xs text-red-600">{errors.data_termino.message}</p>
               )}

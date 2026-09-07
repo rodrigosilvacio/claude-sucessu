@@ -66,7 +66,8 @@ export function EventoInscricaoPublica() {
     evento?.vagas_limite !== undefined &&
     evento.vagas_ocupadas >= evento.vagas_limite
 
-  const inscricoesFechadas = evento?.status !== "Planejado"
+  const inscricoesFechadas = evento?.status !== "Aprovado"
+  const aindaNaoAprovado = evento?.status === "Planejado"
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-brand-bg px-4 py-10">
@@ -128,7 +129,9 @@ export function EventoInscricaoPublica() {
 
             {inscricoesFechadas ? (
               <p className="mt-6 text-center text-sm text-slate-500">
-                As inscrições para este evento não estão mais abertas.
+                {aindaNaoAprovado
+                  ? "As inscrições para este evento ainda não foram abertas."
+                  : "As inscrições para este evento não estão mais abertas."}
               </p>
             ) : vagasEsgotadas ? (
               <p className="mt-6 text-center text-sm text-slate-500">

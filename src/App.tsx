@@ -3,6 +3,7 @@ import { Layout } from "./components/Layout"
 import { RequireAuth } from "./components/RequireAuth"
 import { RequireFinanceiro } from "./components/RequireFinanceiro"
 import { Login } from "./pages/Login"
+import { DefinirSenha } from "./pages/DefinirSenha"
 import { Dashboard } from "./pages/Dashboard"
 import { AssociadosList } from "./pages/AssociadosList"
 import { AssociadoForm } from "./pages/AssociadoForm"
@@ -19,6 +20,7 @@ import { ConteudoForm } from "./pages/ConteudoForm"
 import { EventosList } from "./pages/EventosList"
 import { EventoForm } from "./pages/EventoForm"
 import { EventoInscricaoPublica } from "./pages/EventoInscricaoPublica"
+import { AgendaPublica } from "./pages/AgendaPublica"
 import { FormulariosList } from "./pages/FormulariosList"
 import { FormularioForm } from "./pages/FormularioForm"
 import { FormularioPublico } from "./pages/FormularioPublico"
@@ -34,9 +36,11 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/definir-senha" element={<DefinirSenha />} />
       <Route path="/pre-cadastro" element={<PreCadastro />} />
       <Route path="/inscricao/:slug" element={<EventoInscricaoPublica />} />
       <Route path="/formulario/:slug" element={<FormularioPublico />} />
+      <Route path="/agenda-publica" element={<AgendaPublica />} />
 
       <Route element={<RequireAuth />}>
         <Route element={<Layout />}>
