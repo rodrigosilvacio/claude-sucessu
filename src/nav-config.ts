@@ -20,7 +20,7 @@ export type NavItem = {
   label: string
   path: string
   icon: LucideIcon
-  requiresFinanceiro?: boolean
+  requiresAdmin?: boolean
 }
 
 export type NavSection = {
@@ -49,7 +49,7 @@ export const navSections: NavSection[] = [
       { label: "Eventos", path: "/eventos", icon: CalendarRange },
       { label: "Formulários", path: "/formularios", icon: ClipboardList },
       { label: "Agenda", path: "/agenda", icon: CalendarDays },
-      { label: "Financeiro", path: "/financeiro", icon: Wallet, requiresFinanceiro: true },
+      { label: "Financeiro", path: "/financeiro", icon: Wallet },
     ],
   },
   {
@@ -59,9 +59,9 @@ export const navSections: NavSection[] = [
   {
     title: "Configuração",
     items: [
-      { label: "Associação", path: "/associacao", icon: Landmark },
-      { label: "Usuários", path: "/usuarios", icon: UserCog },
-      { label: "Auditoria", path: "/auditoria", icon: ShieldCheck },
+      { label: "Associação", path: "/associacao", icon: Landmark, requiresAdmin: true },
+      { label: "Usuários", path: "/usuarios", icon: UserCog, requiresAdmin: true },
+      { label: "Auditoria", path: "/auditoria", icon: ShieldCheck, requiresAdmin: true },
     ],
   },
 ]

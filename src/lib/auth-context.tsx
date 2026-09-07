@@ -5,14 +5,14 @@ import { supabase } from "./supabase"
 export type UsuarioEscopo = {
   associacao_id: string | null
   is_admin: boolean
-  papel: "gestor" | "financeiro"
+  papel: "admin" | "gestor"
 }
 
 type AuthContextValue = {
   session: Session | null
   escopo: UsuarioEscopo | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>
+  signIn: (usuario: string, password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
 
@@ -71,9 +71,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.subscription.unsubscribe()
   }, [])
 
-  async function signIn(email: string, password: string) {
+  async function signIn(usuario: string, password: string) {
+    const { data: email, error: resolveError } = await supabase.rpc("sucesu_resolver_login", {
+      p_usuario: usuario.trim(),
+    })
+    if (resolveError || !email) {
+      return { error: "Usuário ou senha inválidos." }
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) return { error: error.message }
+    if (error) return { error: "Usuário ou senha inválidos." }
 
     const escopoAtual = await getEscopo(data.user.id)
     if (!escopoAtual) {

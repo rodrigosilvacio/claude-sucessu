@@ -1,12 +1,10 @@
 import { Navigate, Outlet } from "react-router-dom"
 import { useAuth } from "../lib/auth-context"
 
-export function RequireFinanceiro() {
+export function RequireAdmin() {
   const { escopo } = useAuth()
 
-  const podeAcessar = escopo?.is_admin || escopo?.papel === "financeiro"
-
-  if (!podeAcessar) {
+  if (!escopo?.is_admin) {
     return <Navigate to="/" replace />
   }
 

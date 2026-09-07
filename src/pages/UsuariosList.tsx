@@ -13,8 +13,8 @@ import type { Usuario } from "../types/usuario"
 import type { AssociacaoOption } from "../types/associacao"
 
 const PAPEL_LABELS: Record<Usuario["papel"], string> = {
+  admin: "Admin",
   gestor: "Gestor",
-  financeiro: "Financeiro",
 }
 
 export function UsuariosList() {
@@ -26,12 +26,12 @@ export function UsuariosList() {
   const [aviso, setAviso] = useState<string | null>(null)
 
   const [novoNome, setNovoNome] = useState("")
+  const [novoUsuario, setNovoUsuario] = useState("")
   const [novoEmail, setNovoEmail] = useState("")
   const [novaSenha, setNovaSenha] = useState("")
   const [novaAssociacaoId, setNovaAssociacaoId] = useState("")
-  const [novoAdmin, setNovoAdmin] = useState(false)
   const [novoPapel, setNovoPapel] = useState<Usuario["papel"]>("gestor")
-  const [convidando, setConvidando] = useState(false)
+  const [salvando, setSalvando] = useState(false)
 
   function carregar() {
     setLoading(true)
@@ -49,49 +49,49 @@ export function UsuariosList() {
     })
   }, [])
 
-  async function handleConvidar(e: React.FormEvent) {
+  async function handleCadastrar(e: React.FormEvent) {
     e.preventDefault()
-    if (!novoEmail.trim()) return
-    setConvidando(true)
+    if (!novoUsuario.trim() || !novaSenha.trim()) return
+    setSalvando(true)
     setError(null)
     setAviso(null)
     try {
-      const result = await convidarUsuario(
-        novoEmail.trim(),
-        novoNome.trim() || undefined,
-        novaAssociacaoId || undefined,
-        novoAdmin,
-        novoPapel,
-        novaSenha || undefined,
-      )
+      const result = await convidarUsuario({
+        usuario: novoUsuario.trim(),
+        password: novaSenha,
+        nome: novoNome.trim() || undefined,
+        email: novoEmail.trim() || undefined,
+        associacaoId: novaAssociacaoId || undefined,
+        papel: novoPapel,
+      })
       setAviso(
         result.contaExistente
-          ? `${novoEmail.trim()} já tinha uma conta neste projeto — foi apenas liberado o acesso ao SUCESU SP Connect. A senha existente dela não foi alterada.`
-          : `Conta criada. Informe à pessoa: e-mail ${novoEmail.trim()} e a senha definida.`,
+          ? `Esse e-mail já tinha uma conta neste projeto — foi apenas liberado o acesso ao SUCESU SP Connect. A senha existente dela não foi alterada.`
+          : `Usuário "${result.user.usuario}" cadastrado. Informe a ele o usuário e a senha definida para fazer login.`,
       )
-      setNovoEmail("")
       setNovoNome("")
+      setNovoUsuario("")
+      setNovoEmail("")
       setNovaSenha("")
-      setNovoAdmin(false)
       setNovoPapel("gestor")
       carregar()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao convidar usuário.")
+      setError(err instanceof Error ? err.message : "Erro ao cadastrar usuário.")
     } finally {
-      setConvidando(false)
+      setSalvando(false)
     }
   }
 
   async function handleDefinirSenha(usuario: Usuario) {
     const novaSenha = window.prompt(
-      `Nova senha para ${usuario.email} (mínimo 6 caracteres):\nIsso muda a senha de login dessa conta — se ela usa outro sistema seu com o mesmo e-mail, a senha muda lá também.`,
+      `Nova senha para "${usuario.usuario}" (mínimo 6 caracteres):\nSe essa conta usa outro sistema seu com o mesmo e-mail, a senha muda lá também.`,
     )
     if (!novaSenha) return
     setError(null)
     setAviso(null)
     try {
       await definirSenhaUsuario(usuario.id, novaSenha)
-      setAviso(`Senha atualizada para ${usuario.email}.`)
+      setAviso(`Senha atualizada para "${usuario.usuario}".`)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao definir senha.")
     }
@@ -102,27 +102,19 @@ export function UsuariosList() {
       prev.map((u) => (u.id === usuario.id ? { ...u, associacao_id: associacaoId || null } : u)),
     )
     try {
-      await atualizarEscopoUsuario(usuario.id, associacaoId || null, usuario.is_admin, usuario.papel)
+      await atualizarEscopoUsuario(usuario.id, associacaoId || null, usuario.papel)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao atualizar associação.")
       carregar()
     }
   }
 
-  async function handleAdminChange(usuario: Usuario, isAdmin: boolean) {
-    setUsuarios((prev) => prev.map((u) => (u.id === usuario.id ? { ...u, is_admin: isAdmin } : u)))
-    try {
-      await atualizarEscopoUsuario(usuario.id, usuario.associacao_id, isAdmin, usuario.papel)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao atualizar permissão.")
-      carregar()
-    }
-  }
-
   async function handlePapelChange(usuario: Usuario, papel: Usuario["papel"]) {
-    setUsuarios((prev) => prev.map((u) => (u.id === usuario.id ? { ...u, papel } : u)))
+    setUsuarios((prev) =>
+      prev.map((u) => (u.id === usuario.id ? { ...u, papel, is_admin: papel === "admin" } : u)),
+    )
     try {
-      await atualizarEscopoUsuario(usuario.id, usuario.associacao_id, usuario.is_admin, papel)
+      await atualizarEscopoUsuario(usuario.id, usuario.associacao_id, papel)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao atualizar papel.")
       carregar()
@@ -136,7 +128,7 @@ export function UsuariosList() {
     }
     if (
       !window.confirm(
-        `Remover o acesso de ${usuario.email} ao SUCESU SP Connect? A conta continua existindo (pode ser usada em outros sistemas), só perde acesso a este.`,
+        `Remover o acesso de "${usuario.usuario}" ao SUCESU SP Connect? A conta continua existindo (pode ser usada em outros sistemas), só perde acesso a este.`,
       )
     )
       return
@@ -158,18 +150,13 @@ export function UsuariosList() {
     <div>
       <h1 className="text-2xl font-bold text-brand-navy-900">Usuários</h1>
       <p className="mt-1 text-slate-500">
-        Contas com acesso ao SUCESU SP Connect (este projeto Supabase é compartilhado com outros
-        sistemas seus — aqui só aparecem contas autorizadas para este). Administradores veem todas
-        as associações; os demais ficam vinculados a uma associação específica. O papel Financeiro é
-        o único que pode criar, editar ou excluir contas a pagar/receber.
+        Contas com acesso ao SUCESU SP Connect. Admin tem acesso completo, incluindo Associação,
+        Usuários e Auditoria; Gestor tem acesso a tudo, exceto essas três telas de configuração.
       </p>
 
       <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
         <h2 className="text-base font-semibold text-brand-navy-900">Cadastrar novo usuário</h2>
-        <p className="mt-1 text-xs text-slate-500">
-          Você define a senha inicial e informa e-mail e senha diretamente para a pessoa.
-        </p>
-        <form onSubmit={handleConvidar} className="mt-3 flex flex-wrap gap-2">
+        <form onSubmit={handleCadastrar} className="mt-3 flex flex-wrap gap-2">
           <input
             value={novoNome}
             onChange={(e) => setNovoNome(e.target.value)}
@@ -177,26 +164,31 @@ export function UsuariosList() {
             className="min-w-[160px] rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
           />
           <input
-            type="email"
+            value={novoUsuario}
+            onChange={(e) => setNovoUsuario(e.target.value)}
             required
+            placeholder="Usuário (para login)"
+            className="min-w-[160px] rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
+          />
+          <input
+            type="email"
             value={novoEmail}
             onChange={(e) => setNovoEmail(e.target.value)}
-            placeholder="email@exemplo.com"
-            className="flex-1 min-w-[220px] rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
+            placeholder="E-mail (opcional)"
+            className="min-w-[200px] rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
           />
           <input
             type="text"
             required
             value={novaSenha}
             onChange={(e) => setNovaSenha(e.target.value)}
-            placeholder="Senha inicial (mín. 6 caracteres)"
-            className="min-w-[220px] rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
+            placeholder="Senha (mín. 6 caracteres)"
+            className="min-w-[200px] rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
           />
           <select
             value={novaAssociacaoId}
             onChange={(e) => setNovaAssociacaoId(e.target.value)}
-            disabled={novoAdmin}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none disabled:opacity-50"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
           >
             <option value="">Sem associação</option>
             {associacoes.map((a) => (
@@ -208,23 +200,18 @@ export function UsuariosList() {
           <select
             value={novoPapel}
             onChange={(e) => setNovoPapel(e.target.value as Usuario["papel"])}
-            disabled={novoAdmin}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none disabled:opacity-50"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
           >
             <option value="gestor">Gestor</option>
-            <option value="financeiro">Financeiro</option>
+            <option value="admin">Admin</option>
           </select>
-          <label className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600">
-            <input type="checkbox" checked={novoAdmin} onChange={(e) => setNovoAdmin(e.target.checked)} />
-            Administrador
-          </label>
           <button
             type="submit"
-            disabled={convidando}
+            disabled={salvando}
             className="flex items-center gap-1.5 rounded-lg bg-brand-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-navy-800 disabled:opacity-60"
           >
             <UserPlus size={16} />
-            {convidando ? "Salvando..." : "Cadastrar"}
+            {salvando ? "Salvando..." : "Cadastrar"}
           </button>
         </form>
 
@@ -250,10 +237,9 @@ export function UsuariosList() {
               <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-4 py-3 font-medium">Nome</th>
-                  <th className="px-4 py-3 font-medium">E-mail</th>
+                  <th className="px-4 py-3 font-medium">Usuário</th>
                   <th className="px-4 py-3 font-medium">Associação</th>
                   <th className="px-4 py-3 font-medium">Papel</th>
-                  <th className="px-4 py-3 font-medium">Admin</th>
                   <th className="px-4 py-3 font-medium">Último acesso</th>
                   <th className="px-4 py-3 font-medium"></th>
                 </tr>
@@ -269,7 +255,7 @@ export function UsuariosList() {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{u.email}</td>
+                    <td className="px-4 py-3 text-slate-600">{u.usuario}</td>
                     <td className="px-4 py-3 text-slate-600">
                       {u.is_admin ? (
                         <span className="text-xs text-slate-400">Todas</span>
@@ -292,25 +278,14 @@ export function UsuariosList() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-slate-600">
-                      {u.is_admin ? (
-                        <span className="text-xs text-slate-400">Todos os papéis</span>
-                      ) : (
-                        <select
-                          value={u.papel}
-                          onChange={(e) => handlePapelChange(u, e.target.value as Usuario["papel"])}
-                          className="rounded-lg border border-slate-300 px-2 py-1 text-xs focus:border-brand-blue-500 focus:outline-none"
-                        >
-                          <option value="gestor">{PAPEL_LABELS.gestor}</option>
-                          <option value="financeiro">{PAPEL_LABELS.financeiro}</option>
-                        </select>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={u.is_admin}
-                        onChange={(e) => handleAdminChange(u, e.target.checked)}
-                      />
+                      <select
+                        value={u.papel}
+                        onChange={(e) => handlePapelChange(u, e.target.value as Usuario["papel"])}
+                        className="rounded-lg border border-slate-300 px-2 py-1 text-xs focus:border-brand-blue-500 focus:outline-none"
+                      >
+                        <option value="gestor">{PAPEL_LABELS.gestor}</option>
+                        <option value="admin">{PAPEL_LABELS.admin}</option>
+                      </select>
                     </td>
                     <td className="px-4 py-3 text-slate-600">
                       {u.last_sign_in_at

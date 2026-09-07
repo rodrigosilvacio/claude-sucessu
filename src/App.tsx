@@ -1,7 +1,7 @@
 import { Routes, Route } from "react-router-dom"
 import { Layout } from "./components/Layout"
 import { RequireAuth } from "./components/RequireAuth"
-import { RequireFinanceiro } from "./components/RequireFinanceiro"
+import { RequireAdmin } from "./components/RequireAdmin"
 import { Login } from "./pages/Login"
 import { DefinirSenha } from "./pages/DefinirSenha"
 import { Dashboard } from "./pages/Dashboard"
@@ -67,17 +67,17 @@ function App() {
           <Route path="/formularios/novo" element={<FormularioForm />} />
           <Route path="/formularios/:id/editar" element={<FormularioForm />} />
           <Route path="/agenda" element={<Agenda />} />
-          <Route element={<RequireFinanceiro />}>
-            <Route path="/financeiro" element={<FinanceiroPage />} />
-            <Route path="/financeiro/pagar/novo" element={<ContaPagarForm />} />
-            <Route path="/financeiro/pagar/:id/editar" element={<ContaPagarForm />} />
-            <Route path="/financeiro/receber/novo" element={<ContaReceberForm />} />
-            <Route path="/financeiro/receber/:id/editar" element={<ContaReceberForm />} />
-          </Route>
+          <Route path="/financeiro" element={<FinanceiroPage />} />
+          <Route path="/financeiro/pagar/novo" element={<ContaPagarForm />} />
+          <Route path="/financeiro/pagar/:id/editar" element={<ContaPagarForm />} />
+          <Route path="/financeiro/receber/novo" element={<ContaReceberForm />} />
+          <Route path="/financeiro/receber/:id/editar" element={<ContaReceberForm />} />
           <Route path="/relatorios" element={<Relatorios />} />
-          <Route path="/associacao" element={<AssociacaoPage />} />
-          <Route path="/usuarios" element={<UsuariosList />} />
-          <Route path="/auditoria" element={<Auditoria />} />
+          <Route element={<RequireAdmin />}>
+            <Route path="/associacao" element={<AssociacaoPage />} />
+            <Route path="/usuarios" element={<UsuariosList />} />
+            <Route path="/auditoria" element={<Auditoria />} />
+          </Route>
         </Route>
       </Route>
     </Routes>

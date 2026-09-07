@@ -6,7 +6,7 @@ import { useAuth } from "../lib/auth-context"
 export function Login() {
   const { session, signIn } = useAuth()
   const location = useLocation()
-  const [email, setEmail] = useState("")
+  const [usuario, setUsuario] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -20,9 +20,9 @@ export function Login() {
     e.preventDefault()
     setError(null)
     setSubmitting(true)
-    const { error } = await signIn(email, password)
+    const { error } = await signIn(usuario, password)
     setSubmitting(false)
-    if (error) setError("E-mail ou senha inválidos.")
+    if (error) setError(error)
   }
 
   return (
@@ -37,16 +37,16 @@ export function Login() {
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
-            <label htmlFor="email" className="text-sm font-medium text-brand-navy-900">
-              E-mail
+            <label htmlFor="usuario" className="text-sm font-medium text-brand-navy-900">
+              Usuário
             </label>
             <input
-              id="email"
-              type="email"
+              id="usuario"
+              type="text"
               required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
+              value={usuario}
+              onChange={(e) => setUsuario(e.target.value)}
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:outline-none"
             />
           </div>

@@ -10,7 +10,21 @@ async function invoke<T>(body: Record<string, unknown>): Promise<T> {
   if (error) {
     if (error instanceof FunctionsHttpError) {
       const errorBody = await error.context.json().catch(() => null)
-      throw new Error(errorBody?.error || error.message)
+      const message: string | undefined = errorBody?.error
+      // O token de acesso pode estar perto de expirar (aba ficou muito tempo
+      // aberta/inativa) e o refresh automático ainda não rodou. Força um
+      // refresh e tenta a chamada de novo, uma única vez, antes de desistir.
+      if (message === "Sessão inválida") {
+        const { data: refreshed } = await supabase.auth.refreshSession()
+        if (refreshed.session) {
+          const retry = await supabase.functions.invoke(FUNCTION_NAME, { body })
+          if (!retry.error) {
+            if (retry.data?.error) throw new Error(retry.data.error)
+            return retry.data as T
+          }
+        }
+      }
+      throw new Error(message || error.message)
     }
     throw error
   }
@@ -24,24 +38,23 @@ export async function listUsuarios(): Promise<Usuario[]> {
   return data.users
 }
 
-export async function convidarUsuario(
-  email: string,
-  nome?: string,
-  associacaoId?: string,
-  isAdmin?: boolean,
-  papel?: "gestor" | "financeiro",
-  password?: string,
-): Promise<{ user: { id: string; email: string }; contaExistente: boolean }> {
-  return invoke({ action: "invite", email, nome, associacaoId, isAdmin, papel, password })
+export async function convidarUsuario(params: {
+  usuario: string
+  password: string
+  nome?: string
+  email?: string
+  associacaoId?: string
+  papel: "admin" | "gestor"
+}): Promise<{ user: { id: string; usuario: string; email: string }; contaExistente: boolean }> {
+  return invoke({ action: "invite", ...params })
 }
 
 export async function atualizarEscopoUsuario(
   userId: string,
   associacaoId: string | null,
-  isAdmin: boolean,
-  papel: "gestor" | "financeiro",
+  papel: "admin" | "gestor",
 ): Promise<void> {
-  await invoke({ action: "update_scope", userId, associacaoId, isAdmin, papel })
+  await invoke({ action: "update_scope", userId, associacaoId, papel })
 }
 
 export async function definirSenhaUsuario(userId: string, password: string): Promise<void> {
@@ -50,4 +63,10 @@ export async function definirSenhaUsuario(userId: string, password: string): Pro
 
 export async function removerAcessoUsuario(userId: string): Promise<void> {
   await invoke({ action: "revoke", userId })
+}
+
+export async function resolverEmailPorUsuario(usuario: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc("sucesu_resolver_login", { p_usuario: usuario })
+  if (error) throw error
+  return (data as string | null) ?? null
 }

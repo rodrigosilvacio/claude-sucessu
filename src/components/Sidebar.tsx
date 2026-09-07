@@ -13,7 +13,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const { signOut, escopo } = useAuth()
   const navigate = useNavigate()
 
-  const podeVerFinanceiro = escopo?.is_admin || escopo?.papel === "financeiro"
+  const isAdmin = Boolean(escopo?.is_admin)
 
   async function handleSignOut() {
     await signOut()
@@ -47,15 +47,17 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-4">
-          {navSections.map((section) => (
-            <div key={section.title} className="mb-5">
-              <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                {section.title}
-              </p>
-              <ul className="space-y-0.5">
-                {section.items
-                  .filter((item) => !item.requiresFinanceiro || podeVerFinanceiro)
-                  .map((item) => (
+          {navSections.map((section) => {
+            const items = section.items.filter((item) => !item.requiresAdmin || isAdmin)
+            if (items.length === 0) return null
+
+            return (
+              <div key={section.title} className="mb-5">
+                <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  {section.title}
+                </p>
+                <ul className="space-y-0.5">
+                  {items.map((item) => (
                     <li key={item.path}>
                       <NavLink
                         to={item.path}
@@ -73,9 +75,10 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
                       </NavLink>
                     </li>
                   ))}
-              </ul>
-            </div>
-          ))}
+                </ul>
+              </div>
+            )
+          })}
         </nav>
 
         <div className="border-t border-white/10 px-3 py-4">
