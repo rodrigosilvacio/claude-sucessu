@@ -9,20 +9,21 @@ export const ESTADOS_CIVIS = [
 ] as const
 
 export const CATEGORIAS_ASSOCIADO = [
-  "Fundador",
-  "Efetivo",
-  "Contribuinte",
-  "Honorário",
-  "Estudante",
-  "Corporativo",
+  "Pessoa Física",
+  "Startup até 20 colaboradores",
+  "Startup acima de 20 colaboradores",
+  "Pessoa Jurídica com 1 representante",
+  "Pessoa Jurídica com 2 representantes",
+  "Pessoa Jurídica com 3 representantes",
 ] as const
 
 export const TIPOS_VINCULO = [
-  "Titular",
-  "Dependente",
+  "Associado",
+  "Representante",
   "Diretoria",
-  "Conselho Fiscal",
+  "Conselho de CIOs",
   "Conselho Consultivo",
+  "Conselho Fiscal",
 ] as const
 
 export const ORIGENS_ASSOCIADO = [
@@ -38,7 +39,7 @@ export const STATUS_ASSOCIADO = ["Pendente de Aprovação", "Ativo", "Inativo", 
 
 export const TIPOS_PESSOA = ["Pessoa Física", "Pessoa Jurídica"] as const
 
-export const FORMAS_PAGAMENTO = ["Pix", "Cartão"] as const
+export const FORMAS_PAGAMENTO = ["Pix", "Cartão", "Boleto"] as const
 
 // As Vice-Presidências deixaram de ser uma lista fixa: agora são cadastráveis por
 // associação (tabela sucesu_vice_presidencias, gerenciada em Configuração > Associação)

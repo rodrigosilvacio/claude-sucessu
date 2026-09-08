@@ -7,7 +7,7 @@ const validPayload = {
   cpf: "111.444.777-35",
   telefone: "(11) 94020-7654",
   email: "maria@example.com",
-  categoria_associado: "Efetivo",
+  categoria_associado: "Pessoa Física",
   status: "Ativo",
   forma_pagamento: "Pix",
 }
