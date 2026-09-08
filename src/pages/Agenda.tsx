@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { Calendar, Check, ChevronLeft, ChevronRight, Copy } from "lucide-react"
 import { listEventos } from "../lib/eventos"
 import { listConteudos } from "../lib/conteudos"
 import type { EventoComRelacoes } from "../types/evento"
@@ -30,6 +30,15 @@ export function Agenda() {
   const [eventos, setEventos] = useState<EventoComRelacoes[]>([])
   const [conteudos, setConteudos] = useState<ConteudoComRelacoes[]>([])
   const [loading, setLoading] = useState(true)
+  const [copied, setCopied] = useState(false)
+
+  const linkAgendaPublica = `${window.location.origin}/agenda-publica`
+
+  function handleCopyAgendaLink() {
+    navigator.clipboard.writeText(linkAgendaPublica)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   useEffect(() => {
     Promise.all([listEventos(), listConteudos()])
@@ -100,6 +109,23 @@ export function Agenda() {
           <p className="mt-1 text-slate-500">Eventos e prazos de conteúdo da associação</p>
         </div>
         <div className="flex items-center gap-2">
+          <a
+            href="/agenda-publica"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            <Calendar size={18} />
+            Ver Agenda Pública
+          </a>
+          <button
+            type="button"
+            onClick={handleCopyAgendaLink}
+            title="Copiar link da agenda pública"
+            className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            {copied ? <Check size={18} className="text-green-600" /> : <Copy size={18} />}
+          </button>
           <button
             onClick={() => setMesAtual((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
             aria-label="Mês anterior"
