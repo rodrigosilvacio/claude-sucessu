@@ -13,7 +13,7 @@ export function Layout() {
   }, [location.pathname])
 
   return (
-    <div className="flex min-h-screen bg-brand-bg">
+    <div className="flex h-screen overflow-hidden bg-brand-bg">
       <Sidebar mobileOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
 
       <div className="flex min-w-0 flex-1 flex-col">
