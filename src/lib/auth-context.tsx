@@ -18,15 +18,40 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
+// Resultado da checagem de escopo:
+// - "ok": usuário está em sucesu_usuarios
+// - "sem_acesso": consulta funcionou e o usuário NÃO está em sucesu_usuarios
+// - "erro": falha transitória (JWT expirado durante refresh, rede, etc.)
+type EscopoResult =
+  | { status: "ok"; escopo: UsuarioEscopo }
+  | { status: "sem_acesso" }
+  | { status: "erro" }
+
 // Este projeto Supabase é compartilhado com outros apps do usuário — uma sessão
 // válida não basta. Só quem está em sucesu_usuarios pode acessar o SUCESU SP Connect.
-async function getEscopo(userId: string): Promise<UsuarioEscopo | null> {
-  const { data } = await supabase
+async function getEscopo(userId: string): Promise<EscopoResult> {
+  const { data, error } = await supabase
     .from("sucesu_usuarios")
     .select("associacao_id, is_admin, papel")
     .eq("id", userId)
     .maybeSingle()
-  return data as UsuarioEscopo | null
+  if (error) return { status: "erro" }
+  if (!data) return { status: "sem_acesso" }
+  return { status: "ok", escopo: data as UsuarioEscopo }
+}
+
+// Ao reabrir o app com o access token vencido, a primeira consulta pode sair com o
+// JWT antigo (401) enquanto o supabase-js faz o refresh. Antes isso era tratado como
+// "sem acesso" e o app deslogava o usuário. Agora só deslogamos quando a consulta
+// funciona e confirma que o usuário não pertence ao app; em erro, tentamos de novo.
+async function getEscopoComRetry(userId: string): Promise<EscopoResult> {
+  let result = await getEscopo(userId)
+  for (let tentativa = 1; result.status === "erro" && tentativa <= 2; tentativa++) {
+    await new Promise((r) => setTimeout(r, 400 * tentativa))
+    await supabase.auth.getSession()
+    result = await getEscopo(userId)
+  }
+  return result
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -35,40 +60,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (data.session) {
-        const escopoAtual = await getEscopo(data.session.user.id)
-        if (!escopoAtual) {
-          await supabase.auth.signOut()
-          setSession(null)
-          setEscopo(null)
-        } else {
-          setSession(data.session)
-          setEscopo(escopoAtual)
-        }
-      } else {
+    let ativo = true
+
+    async function aplicarSessao(newSession: Session | null) {
+      if (!newSession) {
+        if (!ativo) return
         setSession(null)
-      }
-      setLoading(false)
-    })
-
-    const { data: subscription } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      if (newSession) {
-        const escopoAtual = await getEscopo(newSession.user.id)
-        if (!escopoAtual) {
-          await supabase.auth.signOut()
-          setSession(null)
-          setEscopo(null)
-          return
-        }
-        setEscopo(escopoAtual)
-      } else {
         setEscopo(null)
+        setLoading(false)
+        return
       }
-      setSession(newSession)
+
+      const result = await getEscopoComRetry(newSession.user.id)
+      if (!ativo) return
+
+      if (result.status === "sem_acesso") {
+        await supabase.auth.signOut()
+        setSession(null)
+        setEscopo(null)
+      } else if (result.status === "ok") {
+        setEscopo(result.escopo)
+        setSession(newSession)
+      }
+      // status "erro": mantém o estado atual e não desloga; o próximo evento de auth
+      // (ex.: TOKEN_REFRESHED) tenta de novo.
+      setLoading(false)
+    }
+
+    // INITIAL_SESSION cobre o carregamento inicial (substitui o getSession()).
+    // Nunca aguardar chamadas do Supabase dentro do callback: o supabase-js segura
+    // um lock de auth durante ele, e o await pode travar ou usar o token antigo.
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setTimeout(() => {
+        void aplicarSessao(newSession)
+      }, 0)
     })
 
-    return () => subscription.subscription.unsubscribe()
+    return () => {
+      ativo = false
+      subscription.subscription.unsubscribe()
+    }
   }, [])
 
   async function signIn(usuario: string, password: string) {
@@ -82,12 +113,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) return { error: "Usuário ou senha inválidos." }
 
-    const escopoAtual = await getEscopo(data.user.id)
-    if (!escopoAtual) {
+    const result = await getEscopoComRetry(data.user.id)
+    if (result.status === "sem_acesso") {
       await supabase.auth.signOut()
       return { error: "Esta conta não tem acesso ao SUCESU SP Connect." }
     }
-    setEscopo(escopoAtual)
+    if (result.status === "erro") {
+      return { error: "Não foi possível validar seu acesso. Tente novamente." }
+    }
+    setEscopo(result.escopo)
 
     return { error: null }
   }
